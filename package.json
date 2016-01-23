@@ -1,0 +1,31 @@
+{
+  "name": "sparc-api",
+  "version": "0.0.0",
+  "description": "An api for Sparc",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/amyzliu/Sparc.git"
+  },
+  "keywords": [
+    "api",
+    "sparc"
+  ],
+  "author": "Ben Zhang",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/amyzliu/Sparc/issues"
+  },
+  "dependencies": {
+    "express": "^4.13.4",
+    "superagent": "^1.7.1",
+    "body-parser": "^1.14.2",
+    "dotenv": "^2.0.0"
+  },
+  "devDependencies": {
+    "babel-core": "^6.4.5"
+  }
+}
