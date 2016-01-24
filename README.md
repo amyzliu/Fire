@@ -1,1 +1,0 @@
-The purpose of Sparc is to create an Android platform for mobile university students to connect with other students in the area they will be in during a certain semester. We have implemented the Clarifai API for image recognition. 
