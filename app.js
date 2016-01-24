@@ -50,7 +50,7 @@ GetToken()
 let Fire = new FireAPI(process.env.FIREBASE_URL)
 
 let app = express()
-app.use(bodyParser.urlencoded({extended: true}))
+app.use(bodyParser.json())
 
 app.all('/test', (req, res) => {
   console.log(req.body)
