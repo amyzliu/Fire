@@ -143,12 +143,14 @@ app.post('/user/addimage', (req, res) => {
             })
           }
 
+          let imageObj = {image_data: imageData, tags: probTags}
+
           // Firebase: push image to images under user
           return Fire.req({
             action: 'post',
             endpoint: path.join('users', req.body.id, 'images.json'),
             headers: [['Accept', 'application/json']],
-            params: [{image_data: imageData, tags: probTags}]
+            params: [imageObj]
           }, (err, data) => {
             if (err) {
               return res.json({err: err})
@@ -156,7 +158,13 @@ app.post('/user/addimage', (req, res) => {
               return Fire.mergeTags({
                 id: req.body.id,
                 new_tags: probTags
-              }, res)
+              }, (err) => {
+                if (err) {
+                  return res.json({err: err})
+                } else {
+                  return res.json({data: imageObj})
+                }
+              }, false)
             }
           }, false)
         }
