@@ -52,8 +52,9 @@ let Fire = new FireAPI(process.env.FIREBASE_URL)
 let app = express()
 app.use(bodyParser.urlencoded({extended: true}))
 
-app.post('/uploadimage', (req, res) => {
+app.all('/test', (req, res) => {
   console.log(req.body)
+  return res.json({data: req.body})
 })
 
 app.get('/user/list', (req, res) => {
