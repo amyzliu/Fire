@@ -4,6 +4,7 @@ import Clarifai from './lib/clarifai_node.js'
 import request from 'superagent'
 import bodyParser from 'body-parser'
 import path from 'path'
+import FireAPI from './lib/fire_api.js'
 
 dotenv.config()
 const CLARIFAI_TOKEN_URL = 'https://api.clarifai.com/v1/token/'
@@ -15,7 +16,7 @@ if (!process.env.CLIENT_ID || !process.env.CLIENT_SECRET) {
 }
 
 if (!process.env.FIREBASE_URL) {
-  console.log('ERROR: Cannot find FIREBASE_URL in \'.env\'')
+  console.log("ERROR: Cannot find FIREBASE_URL in '.env'")
   process.exit(1)
 }
 
@@ -44,6 +45,10 @@ let GetToken = function () {
 
 GetToken()
 
+// Init FireAPI
+
+let Fire = new FireAPI(process.env.FIREBASE_URL)
+
 let app = express()
 app.use(bodyParser.json())
 
@@ -51,26 +56,22 @@ app.post('/uploadimage', (req, res) => {
   console.log(req.body)
 })
 
+app.get('/user/list', (req, res) => {
+  return Fire.req({
+    action: 'get',
+    endpoint: 'users.json?shallow=true',
+    headers: [['Accept', 'application/json']]
+  }, res)
+})
+
 app.put('/user/update', (req, res) => {
-  console.log(req.body)
   if (req.body.id && req.body.name) {
-    let reqPath = 'https://' +
-      path.join(
-        process.env.FIREBASE_URL,
-        'users',
-        `${req.body.id}.json`)
-    console.log(reqPath)
-    request
-      .put(reqPath)
-      .set('Accept', 'application/json')
-      .send({name: req.body.name})
-      .end((err, data) => {
-        if (err) {
-          return res.json({err: err})
-        } else {
-          return res.json({data: JSON.parse(data.text)})
-        }
-      })
+    return Fire.req({
+      action: 'patch',
+      endpoint: path.join('users', `${req.body.id}.json`),
+      headers: [['Accept', 'application/json']],
+      params: [{name: req.body.name}]
+    }, res)
   } else {
     return res.json({err: '`id` or `name` not specified'})
   }
@@ -78,21 +79,35 @@ app.put('/user/update', (req, res) => {
 
 app.get('/user/info', (req, res) => {
   if (req.body.id) {
-    let reqPath = 'https://' +
-      path.join(
-        process.env.FIREBASE_URL,
-        'users',
-        `${req.body.id}.json`)
-    request
-      .get(reqPath)
-      .set('Accept', 'application/json')
-      .end((err, data) => {
-        if (err) {
-          return res.json({err: err})
-        } else {
-          return res.json({data: JSON.parse(data.text)})
-        }
-      })
+    return Fire.req({
+      action: 'get',
+      endpoint: path.join('users', `${req.body.id}.json`),
+      headers: [['Accept', 'application/json']]
+    }, res)
+  } else {
+    return res.json({err: '`id` not specified'})
+  }
+})
+
+app.get('/user/info/name', (req, res) => {
+  if (req.body.id) {
+    return Fire.req({
+      action: 'get',
+      endpoint: path.join('users', req.body.id, 'name.json'),
+      headers: [['Accept', 'application/json']]
+    }, res)
+  } else {
+    return res.json({err: '`id` not specified'})
+  }
+})
+
+app.get('/user/info/tags', (req, res) => {
+  if (req.body.id) {
+    return Fire.req({
+      action: 'get',
+      endpoint: path.join('users', req.body.id, 'tags.json'),
+      headers: [['Accept', 'application/json']]
+    }, res)
   } else {
     return res.json({err: '`id` not specified'})
   }
@@ -126,23 +141,21 @@ app.post('/user/addimage', (req, res) => {
           }
 
           // Firebase: push image to images under user
-          let reqPath = 'https://' +
-            path.join(
-              process.env.FIREBASE_URL,
-              'users',
-              req.body.id,
-              'images.json')
-          request
-            .post(reqPath)
-            .set('Accept', 'application/json')
-            .send({image_data: imageData, tags: probTags})
-            .end((err, data) => {
-              if (err) {
-                return res.json({err: err})
-              } else {
-                return res.json({data: JSON.parse(data.text)})
-              }
-            })
+          return Fire.req({
+            action: 'post',
+            endpoint: path.join('users', req.body.id, 'images.json'),
+            headers: [['Accept', 'application/json']],
+            params: [{image_data: imageData, tags: probTags}]
+          }, (err, data) => {
+            if (err) {
+              return res.json({err: err})
+            } else {
+              return Fire.mergeTags({
+                id: req.body.id,
+                new_tags: probTags
+              }, res)
+            }
+          }, false)
         }
       })
   } else {
