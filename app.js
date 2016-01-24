@@ -5,6 +5,8 @@ import request from 'superagent'
 import bodyParser from 'body-parser'
 import path from 'path'
 import FireAPI from './lib/fire_api.js'
+import _ from 'underscore'
+import {compare} from './lib/similarity_index.js'
 
 dotenv.config()
 const CLARIFAI_TOKEN_URL = 'https://api.clarifai.com/v1/token/'
@@ -114,9 +116,52 @@ app.get('/user/info/tags', (req, res) => {
   }
 })
 
-app.post('/user/match', (req, res) => {
+app.get('/user/match', (req, res) => {
   if (req.body.id) {
-
+    Fire.req({
+      action: 'get',
+      endpoint: path.join('users', req.body.id, 'tags.json'),
+      headers: [['Accept', 'application/json']]
+    }, (err, current_user_tags) => {
+      if (err) {
+        return res.json({err: err})
+      } else {
+        console.log('Looking for other users\' indexes')
+        Fire.req({
+          action: 'get',
+          endpoint: 'users.json?shallow=true',
+          headers: [['Accept', 'application/json']]
+        }, (err, users) => {
+          if (err) {
+            return res.json({err: err})
+          } else {
+            console.log('Parsing', users)
+            let users_similarity_index = []
+            let done = _.after(Object.keys(users).length, () => {
+              console.log(users_similarity_index)
+              return res.json({data: users_similarity_index})
+            })
+            _.each(users, (obj, id) => {
+              Fire.req({
+                action: 'get',
+                endpoint: path.join('users', id, 'tags.json'),
+                headers: [['Accept', 'application/json']]
+              }, (err, tags) => {
+                console.log('In users------------------------------')
+                if (err) {
+                  return res.json({err: err})
+                } else {
+                  let similarity_index = compare(tags, current_user_tags)
+                  console.log(similarity_index);
+                  users_similarity_index.push({user: id, similarity: similarity_index})
+                  done()
+                }
+              }, false)
+            })
+          }
+        }, false)
+      }
+    }, false)
   }
 })
 

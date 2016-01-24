@@ -97,7 +97,7 @@ Response:
 ```
 
 
-### GET /user/info/tags
+### POST /user/addimage
 
 Adds a image to the user's profile.
 
