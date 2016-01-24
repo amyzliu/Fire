@@ -6,6 +6,8 @@ import bodyParser from 'body-parser'
 import path from 'path'
 
 dotenv.config()
+const CLARIFAI_TOKEN_URL = 'https://api.clarifai.com/v1/token/'
+const CLARIFAI_TAG_URL = 'https://api.clarifai.com/v1/tag/'
 
 if (!process.env.CLIENT_ID || !process.env.CLIENT_SECRET) {
   console.log('ERROR: Clarifai CLIENT_ID and CLIENT_SECRET required')
@@ -17,7 +19,30 @@ if (!process.env.FIREBASE_URL) {
   process.exit(1)
 }
 
+// Init Clarifai -------------------------
 Clarifai.initAPI(process.env.CLIENT_ID, process.env.CLIENT_SECRET)
+
+let CLARIFAI_ACCESS_TOKEN
+
+let GetToken = function () {
+  request
+    .post(CLARIFAI_TOKEN_URL)
+    .type('form')
+    .send({grant_type: 'client_credentials'})
+    .send({client_id: process.env.CLIENT_ID})
+    .send({client_secret: process.env.CLIENT_SECRET})
+    .end((err, res) => {
+      if (err) {
+        throw err
+      } else {
+        CLARIFAI_ACCESS_TOKEN = res.res.body.access_token
+        console.log('Clarify token update:', CLARIFAI_ACCESS_TOKEN)
+        setTimeout(GetToken, 30000)
+      }
+    })
+}
+
+GetToken()
 
 let app = express()
 app.use(bodyParser.json())
@@ -78,7 +103,51 @@ app.post('/user/match', (req, res) => {
 })
 
 app.post('/user/addimage', (req, res) => {
+  let imageData = req.body.image_data
+  if (req.body.id && imageData) {
+    // Clarifai
+    request
+      .post(CLARIFAI_TAG_URL)
+      .set('Authorization', `Bearer ${CLARIFAI_ACCESS_TOKEN}`)
+      .send({encoded_data: imageData})
+      .end((err, data) => {
+        if (err) {
+          return res.json({err: err})
+        } else {
+          // tags: {classes:[[String]], probs:[[String]]}
+          let tags = JSON.parse(data.text).results[0].result.tag
 
+          let probTags = [] // [{name: String, prob: Float}]
+          for (var i = 0; i < tags.classes[0].length; i++) {
+            probTags.push({
+              name: tags.classes[0][i],
+              prob: tags.probs[0][i]
+            })
+          }
+
+          // Firebase: push image to images under user
+          let reqPath = 'https://' +
+            path.join(
+              process.env.FIREBASE_URL,
+              'users',
+              req.body.id,
+              'images.json')
+          request
+            .post(reqPath)
+            .set('Accept', 'application/json')
+            .send({image_data: imageData, tags: probTags})
+            .end((err, data) => {
+              if (err) {
+                return res.json({err: err})
+              } else {
+                return res.json({data: JSON.parse(data.text)})
+              }
+            })
+        }
+      })
+  } else {
+    return res.json({err: '`id` or `image_data` not specified'})
+  }
 })
 
 let server = app.listen(process.env.port || 8000, () => {
